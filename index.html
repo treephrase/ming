@@ -607,8 +607,11 @@
   let prevX = 0;
 
   function sliderLoop() {
+    // 判断屏幕宽度，大于820px（电脑端）速度设为0.5，否则（手机端）保持1
+    let scrollSpeed = window.innerWidth > 820 ? 0.5 : 1;
+
     if (!isDragging && !isHovering) {
-      currentX -= 1; // 这里的 1 可以控制自动滚动的快慢，数字越大越快
+      currentX -= scrollSpeed; 
     }
     
     // 无缝循环逻辑 (因为图片重复了两组，所以正好以一半宽度为界)
