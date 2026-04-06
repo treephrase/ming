@@ -118,13 +118,19 @@
   .hero-eyebrow { font-size:.65rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gold);opacity:0;animation:slideUp .8s ease 2.2s forwards;display:flex;align-items:center;gap:1.5rem; }
   .hero-eyebrow::before, .hero-eyebrow::after { content:'';display:block;width:40px;height:1px;background:var(--gold); }
   .hero-ming { font-family:'匯文明朝體', 'Huiwen Mincho', 'Cormorant Garamond', serif; font-size:clamp(2.6rem, 5vw, 4.6rem); color:var(--text); line-height:1; opacity:0; animation:slideUp .9s ease 2.4s forwards; margin-top: 2vh;}
-  .hero-slider-window { width:90vw; max-width:1400px; height:clamp(300px, 60vh, 800px); overflow:hidden; position:relative; opacity:0; animation:fadeIn 1.2s ease 2.8s forwards; margin-bottom:6vh; }
-  .hero-slider-track { display:flex; height:100%; width:max-content; animation:scroll 50s linear infinite; }
-  .hero-slider-track:hover { animation-play-state: paused; }
+  
+  .hero-slider-window { 
+    width:90vw; max-width:1400px; height:clamp(300px, 60vh, 800px); 
+    overflow:hidden; position:relative; opacity:0; 
+    animation:fadeIn 1.2s ease 2.8s forwards; margin-bottom:6vh; 
+    touch-action: pan-y; /* 允许上下滚动页面，同时由 JS 接管左右滑动 */
+  }
+  .hero-slider-track { 
+    display:flex; height:100%; width:max-content; 
+  }
   .hero-slider-track img { height:100%; width:auto; aspect-ratio:3/2; object-fit:cover; margin-right:1rem; filter:brightness(.75) contrast(1.1) saturate(.85); transition: filter 0.4s ease, transform 0.4s ease; cursor:none;}
   .hero-slider-track img:hover { filter:brightness(1) contrast(1.05) saturate(1); }
 
-  @keyframes scroll { 0% { transform:translateX(0); } 100% { transform:translateX(calc(-50% - 0.5rem)); } }
   @keyframes slideUp { to{opacity:1;transform:translateY(0)} from{opacity:0;transform:translateY(24px)} }
   @keyframes fadeIn  { to{opacity:1} }
   @keyframes zoomOut { to{transform:scale(1)} }
@@ -589,6 +595,67 @@
     if(e.key==='ArrowRight')lbStep(1);
     if(e.key==='ArrowLeft')lbStep(-1);
     if(e.key==='Escape')closeLb();
+  });
+
+  // --- 首屏相册：自动滚动 + 拖拽滑动 ---
+  const sliderWindow = document.querySelector('.hero-slider-window');
+  const sliderTrack = document.querySelector('.hero-slider-track');
+  let currentX = 0;
+  let isDragging = false;
+  let isHovering = false;
+  let startPos = 0;
+  let prevX = 0;
+
+  function sliderLoop() {
+    if (!isDragging && !isHovering) {
+      currentX -= 1; // 这里的 1 可以控制自动滚动的快慢，数字越大越快
+    }
+    
+    // 无缝循环逻辑 (因为图片重复了两组，所以正好以一半宽度为界)
+    const maxScroll = sliderTrack.scrollWidth / 2;
+    if (Math.abs(currentX) >= maxScroll) {
+      currentX += maxScroll; // 向左超出时，瞬间拉回到中间
+    } else if (currentX > 0) {
+      currentX -= maxScroll; // 向右手动滑过头时，瞬间推回去
+    }
+    
+    sliderTrack.style.transform = `translateX(${currentX}px)`;
+    requestAnimationFrame(sliderLoop);
+  }
+  requestAnimationFrame(sliderLoop);
+
+  // 鼠标事件 (电脑端)
+  sliderWindow.addEventListener('mouseenter', () => isHovering = true);
+  sliderWindow.addEventListener('mouseleave', () => { isHovering = false; isDragging = false; });
+  sliderWindow.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startPos = e.pageX;
+    prevX = currentX;
+  });
+  sliderWindow.addEventListener('mouseup', () => isDragging = false);
+  sliderWindow.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const walk = e.pageX - startPos;
+    currentX = prevX + walk;
+  });
+
+  // 触摸事件 (手机端)
+  sliderWindow.addEventListener('touchstart', (e) => {
+    isHovering = true;
+    isDragging = true;
+    startPos = e.touches[0].pageX;
+    prevX = currentX;
+  });
+  sliderWindow.addEventListener('touchend', () => {
+    isHovering = false;
+    isDragging = false;
+  });
+  sliderWindow.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    // 手机端不需要 preventDefault()，这样手指上下划还能正常滚动页面
+    const walk = e.touches[0].pageX - startPos;
+    currentX = prevX + walk;
   });
 </script>
 </body>
