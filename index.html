@@ -114,16 +114,16 @@
   #mobile-nav a:nth-child(4) { transition-delay: 0.4s; }
   #mobile-nav a:hover { color: var(--gold); }
 
-  .hero { height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding-top:18vh; overflow:hidden; position:relative; }
+  .hero { height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:12vh; overflow:hidden; position:relative; }
   .hero-eyebrow { font-size:.65rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gold);opacity:0;animation:slideUp .8s ease 2.2s forwards;display:flex;align-items:center;gap:1.5rem; }
   .hero-eyebrow::before, .hero-eyebrow::after { content:'';display:block;width:40px;height:1px;background:var(--gold); }
-  .hero-ming { font-family:'匯文明朝體', 'Huiwen Mincho', 'Cormorant Garamond', serif; font-size:clamp(2.6rem, 5vw, 4.6rem); color:var(--text); line-height:1; opacity:0; animation:slideUp .9s ease 2.4s forwards; margin-top: 2vh;}
+  .hero-ming { font-family:'匯文明朝體', 'Huiwen Mincho', 'Cormorant Garamond', serif; font-size:clamp(2.6rem, 5vw, 4.6rem); color:var(--text); line-height:1; opacity:0; animation:slideUp .9s ease 2.4s forwards; margin-top: 1.5vh; margin-bottom: 3vh;}
   
   .hero-slider-window { 
-    width:90vw; max-width:1400px; height:clamp(300px, 60vh, 800px); 
+    width:100vw; max-width:100%; flex-grow: 1; height:auto; 
     overflow:hidden; position:relative; opacity:0; 
-    animation:fadeIn 1.2s ease 2.8s forwards; margin-bottom:6vh; 
-    touch-action: pan-y; /* 允许上下滚动页面，同时由 JS 接管左右滑动 */
+    animation:fadeIn 1.2s ease 2.8s forwards; margin-bottom:3vh; 
+    touch-action: pan-y; 
   }
   .hero-slider-track { 
     display:flex; height:100%; width:max-content; 
@@ -237,18 +237,17 @@
     nav { padding:1.5rem; }
     .nav-links { display:none; } /* 隐藏电脑端文字导航 */
     .mobile-menu-btn { display: block; } /* 显示手机端 Menu 按钮 */
-    .hero { padding-top: 15vh; justify-content:center; }
-    .hero-eyebrow { margin-bottom: 2rem; }
-    .hero-ming { font-size: clamp(2rem, 8vw, 3.3rem); margin-top: 0; margin-bottom: 2rem; }
-    .hero-slider-window { width: 100vw; height: clamp(250px, 50vh, 500px); margin-bottom: 0; }
+    .hero { padding-top: 12vh; justify-content:flex-start; }
+    .hero-eyebrow { margin-bottom: 1rem; }
+    .hero-ming { font-size: clamp(2rem, 8vw, 3.3rem); margin-top: 0; margin-bottom: 1.5rem; }
+    .hero-slider-window { width: 100vw; height: auto; flex-grow: 1; margin-bottom: 3vh; }
     .hero-slider-track img { margin-right: 0.5rem; }
     #portfolio,#reviews,#about,#contact { padding:5rem 1.5rem; }
     
-    /* 核心修改：移除死板的网格，在手机端强制采用弹性横向瀑布流 */
     .masonry-horizontal { 
       display: flex; 
       flex-wrap: wrap; 
-      gap: 0.5rem; /* 手机端间距缩小 */
+      gap: 0.5rem; 
     }
     
     .review-grid { gap: 1.5rem; }
@@ -606,12 +605,41 @@
   let startPos = 0;
   let prevX = 0;
   let autoScrollEnabled = false; 
+  let initialCentered = false; // 新增：标记是否已经居中
+
+  // 新增：自动计算并居中第一张照片的函数
+  function initSliderPosition() {
+    if (initialCentered) return;
+    const windowW = sliderWindow.clientWidth;
+    const firstImg = sliderTrack.querySelector('img');
+    const imgW = firstImg.getBoundingClientRect().width;
+    const maxScroll = sliderTrack.scrollWidth / 2;
+    
+    // 确保宽度已经由浏览器渲染计算出来
+    if (imgW > 0 && maxScroll > 0) {
+      // 将“第二组”的第一张图片居中，这样左右拖拽都有缓冲空间且不会触发正数回弹
+      currentX = -maxScroll + (windowW - imgW) / 2;
+      sliderTrack.style.transform = `translateX(${currentX}px)`;
+      initialCentered = true;
+    }
+  }
+
+  // 利用 requestAnimationFrame 尝试在绘制完毕后立即居中
+  requestAnimationFrame(() => {
+    initSliderPosition();
+  });
+  // 兜底策略：等所有资源加载完毕再确保居中一次
+  window.addEventListener('load', initSliderPosition);
 
   setTimeout(() => {
     autoScrollEnabled = true;
   }, 5100);
 
   function sliderLoop() {
+    if (!initialCentered) {
+       initSliderPosition(); // 如果因为加载问题还没有居中，持续尝试
+    }
+
     // 判断屏幕宽度，大于820px（电脑端）速度设为0.5，否则（手机端）保持1
     let scrollSpeed = window.innerWidth > 820 ? 0.5 : 1;
 
@@ -619,12 +647,14 @@
       currentX -= scrollSpeed; 
     }
     
-    // 无缝循环逻辑 (因为图片重复了两组，所以正好以一半宽度为界)
+    // 无缝循环逻辑
     const maxScroll = sliderTrack.scrollWidth / 2;
-    if (Math.abs(currentX) >= maxScroll) {
-      currentX += maxScroll; // 向左超出时，瞬间拉回到中间
-    } else if (currentX > 0) {
-      currentX -= maxScroll; // 向右手动滑过头时，瞬间推回去
+    if (maxScroll > 0) {
+      if (Math.abs(currentX) >= maxScroll) {
+        currentX += maxScroll; // 向左超出时，瞬间拉回到中间
+      } else if (currentX > 0) {
+        currentX -= maxScroll; // 向右手动滑过头时，瞬间推回去
+      }
     }
     
     sliderTrack.style.transform = `translateX(${currentX}px)`;
